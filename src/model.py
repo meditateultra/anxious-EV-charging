@@ -16,7 +16,7 @@ def weights_init_(m):
 
 def policy_weights_init_(m):
     if isinstance(m, nn.Linear):
-        m = torch.load("..\\..\\model\\pretrain.pb")
+        m = torch.load("..\\model\\pretrain.pb")
 
 
 # ValueNetwork inherits from nn.Module
@@ -58,6 +58,7 @@ class QNetwork(nn.Module):
         self.linear8 = nn.Linear(hidden_dim, 1)
 
         self.apply(weights_init_)
+        # self.apply(policy_weights_init_)
 
     # make forward propagation to 2 critic networks
     def forward(self, state, action):

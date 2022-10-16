@@ -1,5 +1,7 @@
 import math
 import torch
+import numpy as np
+
 
 # 高斯策略函数的构造方法
 def create_log_gaussian(mean, log_std, t):
@@ -9,6 +11,7 @@ def create_log_gaussian(mean, log_std, t):
     z = l[-1] * math.log(2 * math.pi)
     log_p = quadratic.sum(dim=-1) - log_z.sum(dim=-1) - 0.5 * z
     return log_p
+
 
 def logsumexp(inputs, dim=None, keepdim=False):
     if dim is None:
@@ -20,6 +23,7 @@ def logsumexp(inputs, dim=None, keepdim=False):
         outputs = outputs.squeeze(dim)
     return outputs
 
+
 def soft_update(target, source, tau):
     for target_param, param in zip(target.parameters(), source.parameters()):
         target_param.data.copy_(target_param.data * (1.0 - tau) + param.data * tau)
@@ -28,3 +32,41 @@ def soft_update(target, source, tau):
 def hard_update(target, source):
     for target_param, param in zip(target.parameters(), source.parameters()):
         target_param.data.copy_(param.data)
+
+
+def SampleFromNormalDistribution(mu, sigma, size, min, max):
+    times = 0;
+    result = 0
+    while times < size:
+        sample = np.random.normal(mu, sigma)
+        if (sample >= min) and (sample <= max):
+            result = sample
+            times += 1
+    return result
+
+
+def GaussianNomalization(data):
+    ans =data.copy()
+    a = ans[:, 1]
+    u = a.mean()
+    std = a.std()
+    a = (a - u) / std
+    ans[:, 1] = a
+    return ans
+
+
+def MaxMinNormalization(data):
+    ans = data.copy()
+    a = ans[:, 1]
+    minn = a.min()
+    maxx = a.max()
+    a = (a - minn) / (maxx - minn)
+    ans[:, 1] = a
+    return ans
+
+def DecimalNormalization(data):
+    ans = data.copy()
+    a = ans[:, 1]
+    a = a / 100.0
+    ans[:, 1] = a
+    return ans

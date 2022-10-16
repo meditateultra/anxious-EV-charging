@@ -1,25 +1,19 @@
 import argparse
+import sys
+
 import numpy as np
 import torch
 import pandas as pd
 from sac import SAC
 from torch.utils.tensorboard import SummaryWriter
-from replay_memory import ReplayMemory
+from src.replay_memory import ReplayMemory
 import random
 from scipy.stats import norm
 import matplotlib.pyplot as plt
 import math
 import os
+from src.utils import *
 
-
-def SampleFromNormalDistribution(mu, sigma, size, min, max):
-    times = 0; result = 0
-    while times < size:
-        sample = np.random.normal(mu, sigma)
-        if (sample >= min) and (sample <= max):
-            result = sample
-            times += 1
-    return result
 
 
 def placeSelection(t):
@@ -39,15 +33,21 @@ def placeSelection(t):
     return place, mu_dep[place], sigma_dep[place]
 
 
-def depatureSim(td_init, k1_init, t_a, times, place, mu, sigma, t_x):
-    tx_temp = t_x
-    if tx_temp > 24: tx_temp -= 24
+def depatureSim(td_init, k1_init, t_a, times, place, mu, sigma):
+    # tx_temp = t_x
+    # if tx_temp > 24: tx_temp -= 24
     if times == 0:  # change the depature time and soc_d
         flag = 0
         while flag == 0:
             t_d = int(round(np.random.normal(mu, sigma)))
             k1 = SampleFromNormalDistribution(0.9, 0.1, 1, 0.85, 0.95)
-            if ((abs(tx_temp - t_a) > 4) & (tx_temp < t_d) & (t_d <= 24) & (t_d > 0)) | ((abs(tx_temp - t_a) <= 4) & (t_d > tx_temp) & (t_d <= 24) & (t_d > 0)) | ((abs(tx_temp - t_a) <= 4) & (t_a > t_d) & (tx_temp > t_d) & (abs(t_d-t_a) > 5) & (t_d <= 24) & (t_d > 0)):
+            # if ((abs(tx_temp - t_a) > 4) & (tx_temp < t_d) & (t_d <= 24) & (t_d > 0)) | ((abs(tx_temp - t_a) <= 4) & (t_d > tx_temp) & (t_d <= 24) & (t_d > 0)) | ((abs(tx_temp - t_a) <= 4) & (t_a > t_d) & (tx_temp > t_d) & (abs(t_d-t_a) > 5) & (t_d <= 24) & (t_d > 0)):
+            #     flag = 1
+            if t_d > 24 or t_d < 1:
+                continue
+            if t_d < t_a and t_d + 24 - t_a >= 1:
+                flag = 1
+            elif t_d - t_a >= 1:
                 flag = 1
     else:
         t_d = td_init
@@ -58,7 +58,7 @@ def depatureSim(td_init, k1_init, t_a, times, place, mu, sigma, t_x):
 
 
 # generate soc_x and t_x
-def anxiousGenerate(t_d, t_a, k1, t_x):
+def anxiousGenerate(t, t_d, t_a, k1, k2, t_x):
     t_charge = 1  # init
     # flag = 0
     # while flag == 0:
@@ -70,8 +70,10 @@ def anxiousGenerate(t_d, t_a, k1, t_x):
         t_charge = (24-t_a) + t_d
     if t_a < t_d:
         t_charge = t_d - t_a
-    tx_interval = t_x - t_a
-    k2 = SampleFromNormalDistribution(9, 1, 1, 6, 12)
+    if t > t_a:
+        tx_interval = t - t_a
+    else:
+        tx_interval = t + 24 - t_a
     nominator = k1 * (math.exp(-k2 * tx_interval / t_charge) - 1)
     denominator = math.exp(-k2)-1
     soc_x = nominator / denominator
@@ -107,54 +109,80 @@ class Env:
         super(Env, self).__init__()
 
     # simulate user's charging behavior
-    def behaviorSim(self, data, t_index, t_a, times, place_info, td_init, k1_init, tx_init, socx):
+    def behaviorSim(self, data, t_index, t_a, times, place_info, td_init, k1_init, k2_init, socx, tx_init=0):
         t = int(data[t_index][0])  # current time (1-24)
         # set depature time(t_d) and depature soc(soc_d)
         if times == 0:
             place, mu, sigma = placeSelection(t_a)
             place_info = [place, mu, sigma]
-            t_d, k1 = depatureSim(td_init=0, k1_init=0, t_a=t_a, times=times, place=place, mu=mu, sigma=sigma, t_x=tx_init)
-            t_x, soc_x = anxiousGenerate(t_d, t_a, k1, tx_init)
+            t_d, k1 = depatureSim(td_init=0, k1_init=0, t_a=t_a, times=times, place=place, mu=mu, sigma=sigma)
+            k2 = SampleFromNormalDistribution(9, 1, 1, 6, 12)
+            t_x = tx_init
+            if t_d > t_a:
+                if t_d - t_a <= 4:
+                    t_x = t_d - int(round(random.uniform(0, t_d - t_a - 1)))
+                else:
+                    t_x = t_d - int(round(random.uniform(0, 4)))
+            else:
+                if t_d - t_a + 24 <= 4:
+                    t_x = t_d + 24 - int(round(random.uniform(0, t_d - t_a + 24 - 1)))
+                else:
+                    t_x = t_d + 24 - int(round(random.uniform(0, 4)))
+            t_x, soc_x = anxiousGenerate(t, t_d, t_a, k1, k2, t_x)
         else:
-            t_d, k1 = depatureSim(td_init=td_init, k1_init=k1_init, t_a=t, times=times, place=place_info[0], mu=place_info[1], sigma=place_info[2], t_x=tx_init)
-            t_x = tx_init; soc_x = socx
-        return t, t_x, t_d, soc_x, k1, place_info
+            t_d, k1 = depatureSim(td_init=td_init, k1_init=k1_init, t_a=t, times=times, place=place_info[0], mu=place_info[1], sigma=place_info[2])
+            t_x, soc_x = anxiousGenerate(t, t_d, t_a, k1, k2_init, tx_init)
+            k2 = k2_init
+        return t, t_x, t_d, soc_x, k1, k2, place_info
 
     def getSoc(self, soc_bef, action, mu):
         soc, action = socSim(soc_bef, action, mu)
         return soc, action
 
-    def state(self, data, start_point, t_index, t_x, t_d, soc, soc_x, soc_d):
+    def state(self, data, start_point, t_index, t, t_x, t_d, soc, soc_x, soc_d):
         state_lst = []
         for i in range(t_index-start_point, t_index+1):
-            state_lst.append(data[i][1])
-        info = [t_x, t_d, soc, soc_x, soc_d]
+            # state_lst.append(0.25)
+            state_lst.append(data[i][1]/100.0)
+        # if t > t_d:
+        #     info = [t_x / 24.0, t_d / 24.0+1, soc, soc_x, soc_d]
+        # else:
+        info = [t_x/24.0, t_d/24.0, soc, soc_x, soc_d]
         for i in info: state_lst.append(i)
         return state_lst
 
-    def calculateReward(self, t, t_x, t_d, t_a, action, price, soc_d, soc, kp=7, kx=15, kd=35):
-        t_now = t; t_anx = t_x; t_dep = t_d
+    def calculateReward(self, t, t_x, t_d, t_a, action, price, soc_d, soc_x, soc, kp=4, kx=17, kd=50):
+        t_now = t % 24; t_anx = t_x % 24; t_dep = t_d % 24
         r = np.ndarray(shape=(1,), buffer=np.array([0.0]))
         r_anx = np.ndarray(shape=(1,), buffer=np.array([0.0]))
         r_price = np.ndarray(shape=(1,), buffer=np.array([0.0]))
 
         # if (t_anx <= t_dep) & (t_now < t_x):
-        if (t_a-t_anx > 4) & (t_dep < t_a):  # t_x and t_d are both on the next day
-            t_anx += 24; t_dep += 24;
-            if t_now < t_a: t_now += 24  # t is on the next day
-        if (t_anx - t_a <= 4) & (t_dep < t_a):
-            t_dep += 24  # t_d is on the next day
-            if t_now < t_a: t_now += 24  # t is on the next day
+        # if (t_a-t_anx > 4) & (t_dep < t_a):  # t_x and t_d are both on the next day
+        #     t_anx += 24; t_dep += 24;
+        #     if t_now < t_a: t_now += 24  # t is on the next day
+        # if (t_anx - t_a <= 4) & (t_dep < t_a):
+        #     t_dep += 24  # t_d is on the next day
+        #     if t_now < t_a: t_now += 24  # t is on the next day
+
+        if t_now < t_a:
+            t_a += 24
+        if t_d < t_a:
+            t_d += 24
+        if t_x < t_a:
+            t_x += 24
 
         if t_now < t_anx:
-            r_price = -kp * action * price * 0.001 * 150
+            r_price = -kp * action * price
             r = r_price
         if (t_now >= t_anx) & (t_now < t_dep):
-            r_price = -kp * action * price * 0.001 * 150
+            r_price = -kp * action * price
             r_anx = -kx * max((soc_x - soc), 0) ** 2 # price & TA
+            # r_anx = 0.0  # price & TA
             r = r_price + r_anx
         if t_now == t_dep:
             r_anx = -kd * max((soc_d - soc), 0) ** 2  # price & RA
+            # r_anx = 0.0  # price & RA
             r = r_anx
         return r, r_anx, r_price
 
@@ -189,10 +217,9 @@ parser.add_argument('--target_update_interval', type=int, default=1, metavar='N'
                     help='Value target update per no. of updates per step (default: 1)')
 parser.add_argument('--replay_size', type=int, default=10000, metavar='N',
                     help='size of replay buffer (default: 10000000)')
-parser.add_argument('--cuda', action="store_true",
-                    help='run on CUDA (default: False)')
+parser.add_argument('--cuda', action="store_true", help='run on CUDA (default: False)')
 
-parser.add_argument('--clr', type=float, default=0.01, metavar='G',
+parser.add_argument('--clr', type=float, default=0.001, metavar='G',
                     help='critic learning rate (default: 0.0003)')
 parser.add_argument('--plr', type=float, default=0.001, metavar='G',
                     help='policy learning rate (default: 0.0003)')
@@ -205,8 +232,13 @@ random.seed()
 np.random.seed()
 # torch.manual_seed(args.seed) # random action
 
-data = pd.read_excel('..\\data\\priceSim.xlsx', engine='openpyxl')
-data = data.to_numpy()
+# origin_data = pd.read_excel('..\\data\\priceSim.xlsx', engine='openpyxl')
+origin_data = pd.read_excel('..\\price\\trainPrice.xlsx', engine='openpyxl')
+# data = data.to_numpy()
+origin_data = origin_data.to_numpy()
+# data = MaxMinNormalization(origin_data)
+# data = GaussianNomalization(origin_data)
+data = DecimalNormalization(origin_data)
 env = Env()
 state = torch.randn(1, 53)
 action = torch.tensor([0.])
@@ -217,13 +249,15 @@ memory = ReplayMemory(args.replay_size, args.seed)
 start_point = 47
 total_numsteps = 0
 updates = 0
-episode_times = 1550
+episode_times = 10000
 episode_r = []; epoch_price = []; epoch_anx = []
 cr1_lst = []; cr2_lst = []; policy_lst = []; alpha_lst = []
 episode_reward = 0; anx_reward = 0; price_reward = 0
+steps = 0
 
 for i_episode in range(1, episode_times+1):
     ##########################  Start to Charge ##########################################
+    steps = 0
     episode_steps = 0; t_a = 0;
     done = False
     random.seed()
@@ -236,18 +270,17 @@ for i_episode in range(1, episode_times+1):
         if times == 0:
             ########################## S_t ##########################################
             t_a = int(data[t_index][0])
-            t_x = int(round(random.uniform(1, 4))) + t_a
             # soc = SampleFromNormalDistribution(0.5, 0.1, 1, 0.2, 0.8)
             soc = np.random.uniform(0, 0.95)
-            t, t_x, t_d, soc_x, soc_d, place_info = env.behaviorSim(data, t_index, t_a, times, [], 0, 0, t_x, 0)
+            t, t_x, t_d, soc_x, soc_d, k2, place_info = env.behaviorSim(data, t_index, t_a, times, [], 0, 0, 0, 0)
         else:
-            t = tn; t_d = t_dn; t_x = t_xn; soc_x = soc_xn; soc_d = soc_dn;
-        state_lst = env.state(data, start_point, t_index, t_x, t_d, soc, soc_x, soc_d)
+            t = tn; t_d = t_dn; t_x = t_xn; soc_x = soc_xn; soc_d = soc_dn; k2 = k2_n
+        state_lst = env.state(data, start_point, t_index, t, t_x, t_d, soc, soc_x, soc_d)
         state = np.array(state_lst, dtype='f8')
         action = agent.select_action(state)
         socn, action = env.getSoc(soc, action, mu=0.98)
         soc = socn
-        reward, anx, price = env.calculateReward(t, t_x, t_d, t_a, action, state_lst[47], soc_d, soc)
+        reward, anx, price = env.calculateReward(t, t_x, t_d, t_a, action, origin_data[t_index][1], soc_d, soc_x, soc)
         episode_reward += reward; anx_reward += anx; price_reward += price
         if t == t_d:
             depart_flag = 1
@@ -257,16 +290,17 @@ for i_episode in range(1, episode_times+1):
         if t_index >= len(data)-25:
             depart_flag = 1; reward_exempt = 1
             break
-        tn, t_xn, t_dn, soc_xn, soc_dn, place_info = env.behaviorSim(data, t_index, t_a, times, place_info, t_d, soc_d, t_x, soc_x)
-        state_next_lst = env.state(data, start_point, t_index, t_xn, t_dn, socn, soc_xn, soc_dn)
+        tn, t_xn, t_dn, soc_xn, soc_dn, k2_n, place_info = env.behaviorSim(data, t_index, t_a, times, place_info, t_d, soc_d, k2, soc_x, t_x)
+        state_next_lst = env.state(data, start_point, t_index, t, t_xn, t_dn, socn, soc_xn, soc_dn)
         state_next = np.array(state_next_lst, dtype='f8')
         memory.push(state, action, reward, state_next, done)
         total_numsteps += 1
+        steps += 1
 
     if reward_exempt == 0:
-        # episode_reward = episode_reward / i_episode
-        # anx_reward = anx_reward / i_episode
-        # price_reward = price_reward / i_episode
+        # episode_reward = episode_reward / steps
+        # anx_reward = anx_reward / steps
+        # price_reward = price_reward / steps
 
         print("episode_reward:", episode_reward, "price reward:", price_reward, "anx_reward:", anx_reward)
         episode_r.append(episode_reward.copy())
@@ -275,8 +309,11 @@ for i_episode in range(1, episode_times+1):
 
     if len(memory) > args.batch_size:
         for i in range(args.updates_per_step):  # each training tep
-            critic_1_loss, critic_2_loss, policy_loss, ent_loss, alpha \
-                = agent.update_parameters(memory, args.batch_size, updates)
+            try:
+                critic_1_loss, critic_2_loss, policy_loss, ent_loss, alpha \
+                    = agent.update_parameters(memory, args.batch_size, updates)
+            except:
+                print(memory.buffer)
             cr1_lst.append(critic_1_loss)
             cr2_lst.append(critic_1_loss)
             policy_lst.append(policy_loss)
@@ -285,23 +322,23 @@ for i_episode in range(1, episode_times+1):
     episode_steps += 1
 
 fig, rplt = plt.subplots(3)
-# rplt[0].plot(range(len(episode_r)), np.array(episode_r), 'r')
-# rplt[0].set(xlabel='Training episodes', ylabel='Episode reward')
-# rplt[1].plot(range(len(episode_r)), np.array(epoch_price))
-# rplt[1].set(xlabel='Training episodes', ylabel='Price reward')
-# rplt[2].plot(range(len(episode_r)), np.array(epoch_anx))
-# rplt[2].set(xlabel='Training episodes', ylabel='Anxiety reward')
+rplt[0].plot(range(len(episode_r)), np.array(episode_r), 'r')
+rplt[0].set(xlabel='Training episodes', ylabel='Episode reward')
+rplt[1].plot(range(len(episode_r)), np.array(epoch_price))
+rplt[1].set(xlabel='Training episodes', ylabel='Price reward')
+rplt[2].plot(range(len(episode_r)), np.array(epoch_anx))
+rplt[2].set(xlabel='Training episodes', ylabel='Anxiety reward')
 
 fig, rplt0 = plt.subplots()
-rplt0.set_ylim(-200,0)
+# rplt0.set_ylim(-200,0)
 rplt0.plot(range(len(episode_r)), np.array(episode_r), 'r')
 rplt0.set(xlabel='Training episodes', ylabel='Episode reward')
 fig, rplt1 = plt.subplots()
-rplt1.set_ylim(-100,50)
+# rplt1.set_ylim(-100,50)
 rplt1.plot(range(len(episode_r)), np.array(epoch_price))
 rplt1.set(xlabel='Training episodes', ylabel='Price reward')
 fig, rplt2 = plt.subplots()
-rplt2.set_ylim(-100,0)
+# rplt2.set_ylim(-100,0)
 rplt2.plot(range(len(episode_r)), np.array(epoch_anx))
 rplt2.set(xlabel='Training episodes', ylabel='Anxiety reward')
 
@@ -314,24 +351,27 @@ if not os.path.exists("..\\model\\trainedModel.pb"):
 
         ##########################   Simulation   ##########################################
 
-priceSim = pd.read_excel('..\\data\\reserve_simData.xlsx', engine='openpyxl', header = None)
-priceSim = priceSim.to_numpy()
+# priceSim = pd.read_excel('..\\data\\reserve_simData.xlsx', engine='openpyxl', header = None)
+priceSim = pd.read_excel('..\\price\\testPrice.xlsx', engine='openpyxl', header = None)
+# priceSim = priceSim.to_numpy()
+# priceSim = GaussianNomalization(priceSim.to_numpy())
+# priceSim = MaxMinNormalization(priceSim.to_numpy())
+priceSim = DecimalNormalization(priceSim.to_numpy())
 time = [i for i in range(1, 168)]
 td_sim = [9, 17, 32, 42, 57, 64, 79, 89, 105, 115, 131, 136, 154, 162, 167]  # depature time
 ta_sim = [1, 11, 19, 34, 43, 58, 66, 81, 91, 106, 116, 132, 137, 156, 163]  # start charging time
-tx_sim = [2, 13, 21, 36, 44, 59, 68, 82, 92, 108, 119, 133, 140, 157, 164]  # anxious time
-socd_sim = []; socx_sim = []
+tx_sim = [7, 14, 30, 38, 54, 62, 76, 88, 101, 112, 128, 133, 150, 160, 165]  # anxious time
+socd_sim = [];  k2_sim = []
 charge_interval = []
+
 for i in range(len(ta_sim)):
     k1 = SampleFromNormalDistribution(0.9, 0.1, 1, 0.85, 0.95)
     k2 = SampleFromNormalDistribution(9, 1, 1, 6, 12)
     socd_sim.append(k1)
+    k2_sim.append(k2)
     interval = tx_sim[i] - ta_sim[i]
     t_charge = td_sim[i] - ta_sim[i]
     charge_interval.append(t_charge)
-    nominator = k1 * (math.exp(-k2 * interval / t_charge) - 1)
-    denominator = math.exp(-k2) - 1
-    socx_sim.append(nominator / denominator)
 
 soc_sim = [0.5]  # initial soc
 index = 47 + ta_sim[0]
@@ -341,7 +381,10 @@ iter_times = 0
 
 while iter_times < 15:
     for i in range(charge_interval[iter_times]):
-        stateSim = env.state(priceSim, 47, index, (tx_sim[iter_times] % 24), (td_sim[iter_times] % 24), soc_now, socx_sim[iter_times], socd_sim[iter_times])
+        t_x, soc_x = anxiousGenerate(priceSim[index][0], (td_sim[iter_times] % 24), (ta_sim[iter_times] % 24),
+                                     socd_sim[iter_times], k2_sim[iter_times], (tx_sim[iter_times] % 24))
+        stateSim = env.state(priceSim, 47, index, (ta_sim[iter_times] % 24), (tx_sim[iter_times] % 24),
+                             (td_sim[iter_times] % 24), soc_now, soc_x, socd_sim[iter_times])
         stateSim = np.array(stateSim, dtype='f8')
         action = agent.select_action(stateSim)
         action = action.item()
@@ -422,9 +465,13 @@ for i in range(len(ta_sim)):
 
 ax1.legend(loc=0)
 ax1.set(xlabel='Time(h)', ylabel='charging power')
+ax2 = ax1.twinx()
+ax2.plot(range(len(soc_sim)), np.array(price_norm), 'r', label='price')
+ax2.legend(loc='upper right')
+ax2.set(ylabel='Price')
 
 fig, sim = plt.subplots(figsize=(10, 5))
-sim.plot(range(len(soc_sim)), np.array(soc_sim), 'g', label='SoC')
+sim.plot(range(len(soc_sim)), np.array(soc_sim), 'b', label='SoC')
 sim.set(ylabel='SoC')
 sim.legend(loc='upper left')
 axsim = sim.twinx()
