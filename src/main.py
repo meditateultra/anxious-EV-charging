@@ -82,9 +82,9 @@ episode_reward = np.array([0.0], dtype='f8')
 anx_reward = np.array([0.0], dtype='f8')
 price_reward = np.array([0.0], dtype='f8')
 
-avg_reward = np.array([0.0], dtype='f8')
-avg_anx = np.array([0.0], dtype='f8')
-avg_price = np.array([0.0], dtype='f8')
+# avg_reward = np.array([0.0], dtype='f8')
+# avg_anx = np.array([0.0], dtype='f8')
+# avg_price = np.array([0.0], dtype='f8')
 steps = 0
 
 for i_episode in range(1, episode_times + 1):
@@ -137,23 +137,27 @@ for i_episode in range(1, episode_times + 1):
     writer.add_scalar('reward/price_reward', price_reward, i_episode)
     writer.add_scalar('reward/anx_reward', anx_reward, i_episode)
 
-    avg_reward += episode_reward
-    avg_price += price_reward
-    avg_anx += anx_reward
+    episode_r.append(episode_reward)
+    epoch_price.append(price_reward)
+    epoch_anx.append(anx_reward)
 
-    if i_episode % 10 == 0:
-        avg_reward = avg_reward / 10
-        avg_price = avg_price / 10
-        avg_anx = avg_anx / 10
-        writer.add_scalar('avg_reward/sum_reward', avg_reward / 10, i_episode)
-        writer.add_scalar('avg_reward/price_reward', avg_price / 10, i_episode)
-        writer.add_scalar('avg_reward/anx_reward', avg_anx / 10, i_episode)
-        episode_r.append(avg_reward)
-        epoch_price.append(avg_price)
-        epoch_anx.append(avg_anx)
-        avg_reward = np.array([0.0], dtype='f8')
-        avg_anx = np.array([0.0], dtype='f8')
-        avg_price = np.array([0.0], dtype='f8')
+    # avg_reward += episode_reward
+    # avg_price += price_reward
+    # avg_anx += anx_reward
+
+    # if i_episode % 10 == 0:
+    #     avg_reward = avg_reward / 10
+    #     avg_price = avg_price / 10
+    #     avg_anx = avg_anx / 10
+    #     writer.add_scalar('avg_reward/sum_reward', avg_reward / 10, i_episode)
+    #     writer.add_scalar('avg_reward/price_reward', avg_price / 10, i_episode)
+    #     writer.add_scalar('avg_reward/anx_reward', avg_anx / 10, i_episode)
+    #     episode_r.append(avg_reward)
+    #     epoch_price.append(avg_price)
+    #     epoch_anx.append(avg_anx)
+    #     avg_reward = np.array([0.0], dtype='f8')
+    #     avg_anx = np.array([0.0], dtype='f8')
+    #     avg_price = np.array([0.0], dtype='f8')
 
     # if args.eval and i_episode % 10 == 0:
     #     avg_reward = np.array([0.0], dtype='f8')
@@ -196,17 +200,17 @@ torch.save(agent.critic.state_dict(), "..\\run\\fourteen\\critic.pb")
 
 fig, rplt0 = plt.subplots()
 # rplt0.set_ylim(-200,0)
-rplt0.plot(range(0, episode_times, 10), np.array(episode_r), 'r')
+rplt0.plot(range(0, episode_times), np.array(episode_r), 'r')
 rplt0.set(xlabel='Training episodes', ylabel='Episode reward')
 fig.savefig('..\\run\\fourteen\\pic4.png')
 fig, rplt1 = plt.subplots()
 # rplt1.set_ylim(-100,50)
-rplt1.plot(range(0, episode_times, 10), np.array(epoch_price))
+rplt1.plot(range(0, episode_times), np.array(epoch_price))
 rplt1.set(xlabel='Training episodes', ylabel='Price reward')
 fig.savefig('..\\run\\fourteen\\pic5.png')
 fig, rplt2 = plt.subplots()
 # rplt2.set_ylim(-100,0)
-rplt2.plot(range(0, episode_times, 10), np.array(epoch_anx))
+rplt2.plot(range(0, episode_times), np.array(epoch_anx))
 rplt2.set(xlabel='Training episodes', ylabel='Anxiety reward')
 fig.savefig('..\\run\\fourteen\\pic6.png')
 
