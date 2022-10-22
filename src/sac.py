@@ -35,6 +35,7 @@ class SAC(object):
                 # torch.prod:output product of all elements in the action space tensor
                 # shape return the dimension of action space
                 # Target Entropy = −dim(A)
+                # HalfCheetah是一只2D小狗，我们的action是一个长度为6的向量， Target Entropy = -6
                 self.target_entropy = -torch.prod(torch.Tensor(torch.tensor([]).shape).to(self.device)).item()
                 self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
                 # log_alpha is the updated parameter in SAC
