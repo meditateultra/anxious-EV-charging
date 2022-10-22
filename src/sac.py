@@ -1,7 +1,8 @@
 import os
 import torch
 import torch.nn.functional as F
-from torch.optim import Adam
+from torch.optim import Adam, SGD
+from torch.optim.lr_scheduler import MultiStepLR
 from utils import soft_update, hard_update
 from model import GaussianPolicy, QNetwork, DeterministicPolicy
 
@@ -21,6 +22,9 @@ class SAC(object):
         self.critic = QNetwork(num_inputs, action_space.shape[0], args.hidden_size).to(device=self.device)
         self.critic_optim = Adam(self.critic.parameters(), lr=args.clr)
 
+        # self.critic_optim = SGD(self.critic.parameters(), lr=args.clr, momentum=0.9)
+        # self.critic_scheduler = MultiStepLR(self.critic_optim, milestones=[2000, 6000], gamma=0.1)
+
         self.critic_target = QNetwork(num_inputs, action_space.shape[0], args.hidden_size).\
             to(self.device)
 
@@ -36,9 +40,14 @@ class SAC(object):
                 # log_alpha is the updated parameter in SAC
                 self.alpha_optim = Adam([self.log_alpha], lr=args.alphalr)
 
+                # self.alpha_optim = SGD([self.log_alpha], lr=args.alphalr, momentum=0.9)
+
             self.policy = GaussianPolicy(num_inputs, action_space.shape[0], args.hidden_size,
                                          action_space).to(self.device)
             self.policy_optim = Adam(self.policy.parameters(), lr=args.plr)
+
+            # self.policy_optim = SGD(self.policy.parameters(), lr=args.plr, momentum=0.9)
+            # self.policy_scheduler = MultiStepLR(self.policy_optim, milestones=[2000, 6000], gamma=0.1)
 
         else:  # DeterministicPolicy method
             self.alpha = 0
@@ -61,7 +70,7 @@ class SAC(object):
         state_batch = torch.FloatTensor(state_batch).to(self.device)
         next_state_batch = torch.FloatTensor(next_state_batch).to(self.device)
         action_batch = torch.FloatTensor(action_batch).to(self.device)
-        reward_batch = torch.FloatTensor(reward_batch).to(self.device).unsqueeze(1)
+        reward_batch = torch.FloatTensor(reward_batch).to(self.device)
         mask_batch = torch.FloatTensor(mask_batch).to(self.device).unsqueeze(1)
 
         # disabled gradient calculation, calculate the loss of q network
@@ -80,6 +89,7 @@ class SAC(object):
         self.critic_optim.zero_grad()
         qf_loss.backward()
         self.critic_optim.step()
+        # self.critic_scheduler.step()
 
         pi, log_pi, _ = self.policy.sample(state_batch)
 
@@ -90,6 +100,7 @@ class SAC(object):
         self.policy_optim.zero_grad()
         policy_loss.backward()
         self.policy_optim.step()
+        # self.policy_scheduler.step()
         # update par alpha automatically through calculating alpha loss
         if self.automatic_entropy_tuning:
             alpha_loss = -(self.log_alpha * (log_pi + self.target_entropy).detach()).mean()

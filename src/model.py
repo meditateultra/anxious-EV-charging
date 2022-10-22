@@ -67,12 +67,12 @@ class QNetwork(nn.Module):
         x1 = F.relu(self.linear1(xu))
         x1 = F.relu(self.linear2(x1))
         x1 = F.relu(self.linear3(x1))
-        x1 = F.linear(self.linear4(x1), self.linear_weight)
+        x1 = self.linear4(x1)
 
         x2 = F.relu(self.linear5(xu))
         x2 = F.relu(self.linear6(x2))
         x2 = F.relu(self.linear7(x2))
-        x2 = F.linear(self.linear8(x2), self.linear_weight)
+        x2 = self.linear8(x2)
         # x1/x2 is the output
         return x1, x2
 

@@ -45,28 +45,28 @@ def SampleFromNormalDistribution(mu, sigma, size, min, max):
     return result
 
 
-def GaussianNomalization(data):
+def GaussianNomalization(data, column):
     ans =data.copy()
-    a = ans[:, 1]
+    a = ans[:, column]
     u = a.mean()
     std = a.std()
     a = (a - u) / std
-    ans[:, 1] = a
+    ans[:, column] = a
     return ans
 
 
-def MaxMinNormalization(data):
+def MaxMinNormalization(data, column):
     ans = data.copy()
-    a = ans[:, 1]
+    a = ans[:, column]
     minn = a.min()
     maxx = a.max()
     a = (a - minn) / (maxx - minn)
-    ans[:, 1] = a
+    ans[:, column] = a
     return ans
 
-def DecimalNormalization(data):
+def DecimalNormalization(data, column):
     ans = data.copy()
-    a = ans[:, 1]
+    a = ans[:, column]
     a = a / 100.0
-    ans[:, 1] = a
+    ans[:, column] = a
     return ans
