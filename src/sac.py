@@ -35,7 +35,7 @@ class SAC(object):
                 # torch.prod:output product of all elements in the action space tensor
                 # shape return the dimension of action space
                 # Target Entropy = −dim(A)
-                self.target_entropy = -torch.prod(torch.Tensor(action_space.shape).to(self.device)).item()
+                self.target_entropy = -torch.prod(torch.Tensor(torch.tensor([]).shape).to(self.device)).item()
                 self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
                 # log_alpha is the updated parameter in SAC
                 self.alpha_optim = Adam([self.log_alpha], lr=args.alphalr)
