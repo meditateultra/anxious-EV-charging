@@ -58,8 +58,8 @@ class Env:
         return self.state
 
     def step(self, action):
-        reward_tuple = self.calculateReward(action)
         socn, action = self.getSoc(action, mu=0.98)
+        reward_tuple = self.calculateReward(action)
         self.t_index += 1
         self.t = int(self.data[self.t_index][0])
         self.soc_x = self.anxiousGenerate()
@@ -324,7 +324,7 @@ class Env:
         ax2.plot(range(len(soc_sim)), np.array(price_norm), 'r', label='price')
         ax2.legend(loc='upper right')
         ax2.set(ylabel='Price')
-        fig.savefig('..\\run\\fourteen\\pic1.png')
+        fig.savefig('..\\run\\seventeen\\pic1.png')
 
         fig, sim = plt.subplots(figsize=(10, 5))
         sim.plot(range(len(soc_sim)), np.array(soc_sim), 'b', label='SoC')
@@ -334,5 +334,5 @@ class Env:
         axsim.plot(range(len(soc_sim)), np.array(price_norm), 'r', label='price')
         axsim.legend(loc='upper right')
         axsim.set(xlabel='time', ylabel='Price')
-        fig.savefig('..\\run\\fourteen\\pic2.png')
+        fig.savefig('..\\run\\seventeen\\pic2.png')
         plt.show()
