@@ -188,9 +188,11 @@ class Env:
             r = r_price + r_anx
         # 最后一个时间点的reward加到倒数第二个时间点上
         if t_now == t_dep - 1:
-            r_anx = -kd * max((self.soc_d - self.soc), 0) ** 2  # price & RA
+            temp_soc, _ = self.getSoc(action, 0.98)
+            temp_anx = -kd * max((self.soc_d - temp_soc), 0) ** 2  # price & RA
             # r_anx = 0.0  # price & RA
-            r += r_anx
+            r += temp_anx
+            r_anx += temp_anx
         return r, r_anx, r_price
 
     def simulation(self, agent):
