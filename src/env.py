@@ -67,7 +67,7 @@ class Env:
         self.state = self.getState()
         if self.t == self.t_d:
             self.done = True
-        return self.state, reward_tuple, self.done
+        return self.state, reward_tuple, action, self.done
 
     def placeSelection(self, t):
         mu_arr = [16.8, 9.2, 11.6]
@@ -161,7 +161,7 @@ class Env:
             self.state_list.append(i)
         return np.array(self.state_list, dtype='f8')
 
-    def calculateReward(self, action, kp=5, kx=17, kd=35):
+    def calculateReward(self, action, kp=4, kx=17, kd=35):
         price = self.origin_data[self.t_index][1]
         t_now = 24 if self.t % 24 == 0 else self.t % 24
         t_anx = 24 if self.t_x % 24 == 0 else self.t_x % 24
@@ -240,7 +240,7 @@ class Env:
             self.soc_x = self.anxiousGenerate()
             for i in range(charge_interval[iter_times]):
                 action = agent.select_action(self.state)
-                next_state, _, _ = self.step(action)
+                next_state, _, action, _ = self.step(action)
                 action = action.item()
                 action_lst.append(action)
                 soc_sim.append(self.soc)
@@ -326,7 +326,7 @@ class Env:
         ax2.plot(range(len(soc_sim)), np.array(price_norm), 'r', label='price')
         ax2.legend(loc='upper right')
         ax2.set(ylabel='Price')
-        fig.savefig('..\\run\\seventeen\\pic1.png')
+        fig.savefig('..\\run\\twentyone\\pic1.png')
 
         fig, sim = plt.subplots(figsize=(10, 5))
         sim.plot(range(len(soc_sim)), np.array(soc_sim), 'b', label='SoC')
@@ -336,5 +336,5 @@ class Env:
         axsim.plot(range(len(soc_sim)), np.array(price_norm), 'r', label='price')
         axsim.legend(loc='upper right')
         axsim.set(xlabel='time', ylabel='Price')
-        fig.savefig('..\\run\\seventeen\\pic2.png')
+        fig.savefig('..\\run\\twentyone\\pic2.png')
         plt.show()

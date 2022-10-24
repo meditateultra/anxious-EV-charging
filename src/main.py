@@ -27,7 +27,7 @@ parser.add_argument('--tau', type=float, default=0.005, metavar='G',
 parser.add_argument('--alpha', type=float, default=0.5, metavar='G',
                     help='Temperature parameter α determines the relative importance of the entropy\
                             term against the reward (default: 0.2)')
-parser.add_argument('--automatic_entropy_tuning', type=bool, default=False, metavar='G',
+parser.add_argument('--automatic_entropy_tuning', type=bool, default=True, metavar='G',
                     help='Automaically adjust α (default: False)')
 parser.add_argument('--seed', type=int, default=123456, metavar='N',
                     help='random seed (default: 123456)')
@@ -65,12 +65,12 @@ action = torch.tensor([0.])
 next_state = torch.randn(1, 53)
 
 agent = SAC(state.shape[1], action, args)
-writer = SummaryWriter('../run/seventeen')
+writer = SummaryWriter('../run/twentyone')
 
 memory = ReplayMemory(args.replay_size, args.seed)
 total_numsteps = 0
 updates = 0
-episode_times = 60000
+episode_times = 30000
 episode_r = []
 epoch_price = []
 epoch_anx = []
@@ -118,7 +118,7 @@ for i_episode in range(1, episode_times + 1):
                 writer.add_scalar('entropy_temprature/alpha', alpha, updates)
                 updates += 1
 
-        next_state, reward_tuple, done = env.step(action)
+        next_state, reward_tuple, action, done = env.step(action)
         reward = reward_tuple[0]
         anx = reward_tuple[1]
         price = reward_tuple[2]
@@ -187,8 +187,8 @@ for i_episode in range(1, episode_times + 1):
     #     epoch_anx.append(avg_anx)
     episode_steps += 1
 
-torch.save(agent.policy.state_dict(), "..\\run\\seventeen\\policy.pb")
-torch.save(agent.critic.state_dict(), "..\\run\\seventeen\\critic.pb")
+torch.save(agent.policy.state_dict(), "..\\run\\twentyone\\policy.pb")
+torch.save(agent.critic.state_dict(), "..\\run\\twentyone\\critic.pb")
 # fig, rplt = plt.subplots(3)
 # rplt[0].plot(range(len(episode_r)), np.array(episode_r), 'r')
 # rplt[0].set(xlabel='Training episodes', ylabel='Episode reward')
@@ -196,23 +196,23 @@ torch.save(agent.critic.state_dict(), "..\\run\\seventeen\\critic.pb")
 # rplt[1].set(xlabel='Training episodes', ylabel='Price reward')
 # rplt[2].plot(range(len(episode_r)), np.array(epoch_anx))
 # rplt[2].set(xlabel='Training episodes', ylabel='Anxiety reward')
-# fig.savefig('..\\run\\seventeen\\pic3.png')
+# fig.savefig('..\\run\\twentyone\\pic3.png')
 
 fig, rplt0 = plt.subplots()
 # rplt0.set_ylim(-200,0)
 rplt0.plot(range(0, episode_times), np.array(episode_r), 'r')
 rplt0.set(xlabel='Training episodes', ylabel='Episode reward')
-fig.savefig('..\\run\\seventeen\\pic4.png')
+fig.savefig('..\\run\\twentyone\\pic4.png')
 fig, rplt1 = plt.subplots()
 # rplt1.set_ylim(-100,50)
 rplt1.plot(range(0, episode_times), np.array(epoch_price))
 rplt1.set(xlabel='Training episodes', ylabel='Price reward')
-fig.savefig('..\\run\\seventeen\\pic5.png')
+fig.savefig('..\\run\\twentyone\\pic5.png')
 fig, rplt2 = plt.subplots()
 # rplt2.set_ylim(-100,0)
 rplt2.plot(range(0, episode_times), np.array(epoch_anx))
 rplt2.set(xlabel='Training episodes', ylabel='Anxiety reward')
-fig.savefig('..\\run\\seventeen\\pic6.png')
+fig.savefig('..\\run\\twentyone\\pic6.png')
 
 # fig, ax = plt.subplots(3)
 # ax[0].plot(range(len(cr1_lst)), np.array(cr1_lst))
