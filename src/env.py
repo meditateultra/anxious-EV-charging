@@ -161,7 +161,7 @@ class Env:
             self.state_list.append(i)
         return np.array(self.state_list, dtype='f8')
 
-    def calculateReward(self, action, kp=4, kx=17, kd=35):
+    def calculateReward(self, action, kp=7, kx=17, kd=35):
         price = self.origin_data[self.t_index][1]
         t_now = 24 if self.t % 24 == 0 else self.t % 24
         t_anx = 24 if self.t_x % 24 == 0 else self.t_x % 24
@@ -236,8 +236,8 @@ class Env:
             self.t = self.t_a
             self.soc_d = socd_sim[iter_times]
             self.k2 = k2_sim[iter_times]
-            self.state = self.getState()
             self.soc_x = self.anxiousGenerate()
+            self.state = self.getState()
             for i in range(charge_interval[iter_times]):
                 action = agent.select_action(self.state)
                 next_state, _, action, _ = self.step(action)
