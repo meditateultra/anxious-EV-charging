@@ -59,11 +59,11 @@ class Env:
 
     def step(self, action):
         socn, action = self.getSoc(action, mu=0.98)
+        self.soc = socn
         reward_tuple = self.calculateReward(action)
         self.t_index += 1
         self.t = int(self.data[self.t_index][0])
         self.soc_x = self.anxiousGenerate()
-        self.soc = socn
         self.state = self.getState()
         if self.t == self.t_d:
             self.done = True
@@ -161,7 +161,7 @@ class Env:
             self.state_list.append(i)
         return np.array(self.state_list, dtype='f8')
 
-    def calculateReward(self, action, kp=7, kx=17, kd=35):
+    def calculateReward(self, action, kp=8, kx=17, kd=35):
         price = self.origin_data[self.t_index][1]
         t_now = 24 if self.t % 24 == 0 else self.t % 24
         t_anx = 24 if self.t_x % 24 == 0 else self.t_x % 24
@@ -186,13 +186,12 @@ class Env:
             r_anx = -kx * max((self.soc_x - self.soc), 0) ** 2  # price & TA
             # r_anx = 0.0  # price & TA
             r = r_price + r_anx
-        # 最后一个时间点的reward加到倒数第二个时间点上
+        # 加到倒数第二个时间上
         if t_now == t_dep - 1:
-            temp_soc, _ = self.getSoc(action, 0.98)
-            temp_anx = -kd * max((self.soc_d - temp_soc), 0) ** 2  # price & RA
+            temp_anx = -kd * max((self.soc_d - self.soc), 0) ** 2
+            r_anx += temp_anx  # price & RA
             # r_anx = 0.0  # price & RA
             r += temp_anx
-            r_anx += temp_anx
         return r, r_anx, r_price
 
     def simulation(self, agent):
@@ -326,7 +325,7 @@ class Env:
         ax2.plot(range(len(soc_sim)), np.array(price_norm), 'r', label='price')
         ax2.legend(loc='upper right')
         ax2.set(ylabel='Price')
-        fig.savefig('..\\run\\twentyone\\pic1.png')
+        fig.savefig('..\\run\\four\\pic1.png')
 
         fig, sim = plt.subplots(figsize=(10, 5))
         sim.plot(range(len(soc_sim)), np.array(soc_sim), 'b', label='SoC')
@@ -336,5 +335,5 @@ class Env:
         axsim.plot(range(len(soc_sim)), np.array(price_norm), 'r', label='price')
         axsim.legend(loc='upper right')
         axsim.set(xlabel='time', ylabel='Price')
-        fig.savefig('..\\run\\twentyone\\pic2.png')
+        fig.savefig('..\\run\\four\\pic2.png')
         plt.show()
