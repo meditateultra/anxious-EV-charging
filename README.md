@@ -1,5 +1,10 @@
 # Deep Reinforcement Learning for Continuous Electric Vehicles Charging Control With Dynamic User Behaviors
 
+<div align="center">
+  <p> English| <a href="./README_zh.md">中文</a>
+  </p>
+</div>
+
 This repository provides **unofficial** PyTorch code for implementing the methods described in the paper "[Deep Reinforcement Learning for Continuous Electric Vehicles Charging Control With Dynamic User Behaviors](https://ieeexplore.ieee.org/abstract/document/9493711)". We rename is as `Anxious EV Charging`.
 
 The original paper's author did not release open-source code, so this repository aims to provide a simplified version of the methods presented in the paper. Our implementation is designed to achieve similar results to the original paper, making it a valuable resource for those interested in reproducing the results.
@@ -60,7 +65,7 @@ python main.py --simulate [--policy_path="example/policy.pb"] [--save_path="run/
 
 
 
-We simulate a charging/discharging progress in a week. The user's travel habits were simulated based on our paper.
+We simulate a charging/discharging progress in a week. The user's travel habits were simulated based on the paper.
 
 ![training reward](doc/figures/pic1.png)
 
